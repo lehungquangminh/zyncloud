@@ -1,10 +1,8 @@
 import { Router } from 'express';
-import ticketsRouter from './user/tickets';
-import walletRouter from './user/wallet';
+import ticketsRouter from './tickets';
 
 const router = Router();
 
 router.use('/tickets', ticketsRouter);
-router.use('/wallet', walletRouter);
 
 export default router;

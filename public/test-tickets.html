@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket System Test Page</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        h1, h2 { color: #0056b3; }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; }
+        .card { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex: 1; min-width: 300px; }
+        form div { margin-bottom: 10px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="number"], textarea, select, input[type="file"] { width: calc(100% - 22px); padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        .response { background-color: #e9ecef; padding: 15px; border-radius: 4px; margin-top: 20px; white-space: pre-wrap; word-break: break-all; }
+        .error { color: red; font-weight: bold; }
+        .ticket-item { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+        .message-item { background-color: #f9f9f9; padding: 8px; margin-bottom: 5px; border-radius: 3px; border-left: 3px solid #007bff; }
+    </style>
+</head>
+<body>
+    <h1>Ticket System Test Page</h1>
+    <p>This page provides a basic interface to test the backend ticket system endpoints.</p>
+    <p><strong>Note:</strong> You need to manually replace <code>YOUR_AUTH_TOKEN_HERE</code> with a valid JWT token from a logged-in user.</p>
+
+    <div class="container">
+        <div class="card">
+            <h2>Configuration</h2>
+            <div>
+                <label for="authToken">Auth Token:</label>
+                <input type="text" id="authToken" placeholder="Enter JWT Token">
+            </div>
+            <button onclick="saveAuthToken()">Save Token</button>
+        </div>
+
+        <div class="card">
+            <h2>Get Ticket Categories</h2>
+            <button onclick="getTicketCategories()">Fetch Categories</button>
+            <div id="categoriesResponse" class="response"></div>
+        </div>
+
+        <div class="card">
+            <h2>Create New Ticket</h2>
+            <form id="createTicketForm">
+                <div>
+                    <label for="createTicketCategoryId">Category ID:</label>
+                    <input type="text" id="createTicketCategoryId" placeholder="e.g., clx5y..." required>
+                </div>
+                <div>
+                    <label for="createTicketTitle">Title:</label>
+                    <input type="text" id="createTicketTitle" required>
+                </div>
+                <div>
+                    <label for="createTicketDescription">Description:</label>
+                    <textarea id="createTicketDescription" rows="5" required></textarea>
+                </div>
+                <div>
+                    <label for="createTicketPriority">Priority:</label>
+                    <select id="createTicketPriority">
+                        <option value="NORMAL">NORMAL</option>
+                        <option value="LOW">LOW</option>
+                        <option value="HIGH">HIGH</option>
+                        <option value="URGENT">URGENT</option>
+                    </select>
+                </div>
+                <button type="submit">Create Ticket</button>
+            </form>
+            <div id="createTicketResponse" class="response"></div>
+        </div>
+
+        <div class="card">
+            <h2>User Tickets List</h2>
+            <form id="getUserTicketsForm">
+                <div>
+                    <label for="listTicketsPage">Page:</label>
+                    <input type="number" id="listTicketsPage" value="1">
+                </div>
+                <div>
+                    <label for="listTicketsLimit">Limit:</label>
+                    <input type="number" id="listTicketsLimit" value="10">
+                </div>
+                <div>
+                    <label for="listTicketsStatus">Status (Optional):</label>
+                    <input type="text" id="listTicketsStatus" placeholder="e.g., OPEN, RESOLVED">
+                </div>
+                <div>
+                    <label for="listTicketsCategoryId">Category ID (Optional):</label>
+                    <input type="text" id="listTicketsCategoryId" placeholder="e.g., clx5y...">
+                </div>
+                <button type="submit">Get Tickets</button>
+            </form>
+            <div id="listTicketsResponse" class="response"></div>
+        </div>
+
+        <div class="card">
+            <h2>Get Ticket Details</h2>
+            <form id="getTicketDetailsForm">
+                <div>
+                    <label for="getTicketId">Ticket ID:</label>
+                    <input type="text" id="getTicketId" required>
+                </div>
+                <button type="submit">Get Details</button>
+            </form>
+            <div id="getTicketDetailsResponse" class="response"></div>
+        </div>
+
+        <div class="card">
+            <h2>Send Message to Ticket</h2>
+            <form id="sendMessageForm">
+                <div>
+                    <label for="sendMessageTicketId">Ticket ID:</label>
+                    <input type="text" id="sendMessageTicketId" required>
+                </div>
+                <div>
+                    <label for="messageContent">Message:</label>
+                    <textarea id="messageContent" rows="3" required></textarea>
+                </div>
+                <div>
+                    <label for="messageAttachment">Attachment (Optional):</label>
+                    <input type="file" id="messageAttachment">
+                </div>
+                <button type="submit">Send Message</button>
+            </form>
+            <div id="sendMessageResponse" class="response"></div>
+        </div>
+
+        <div class="card">
+            <h2>Get Ticket Messages</h2>
+            <form id="getMessagesForm">
+                <div>
+                    <label for="getMessagesTicketId">Ticket ID:</label>
+                    <input type="text" id="getMessagesTicketId" required>
+                </div>
+                <button type="submit">Get Messages</button>
+            </form>
+            <div id="getMessagesResponse" class="response"></div>
+        </div>
+
+        <div class="card">
+            <h2>Upload General Ticket Attachment</h2>
+            <form id="uploadAttachmentForm">
+                <div>
+                    <label for="uploadTicketId">Ticket ID:</label>
+                    <input type="text" id="uploadTicketId" required>
+                </div>
+                <div>
+                    <label for="generalAttachment">Attachment:</label>
+                    <input type="file" id="generalAttachment" required>
+                </div>
+                <button type="submit">Upload Attachment</button>
+            </form>
+            <div id="uploadAttachmentResponse" class="response"></div>
+        </div>
+
+        <div class="card">
+            <h2>Download Attachment (Metadata)</h2>
+            <form id="downloadAttachmentForm">
+                <div>
+                    <label for="downloadTicketId">Ticket ID:</label>
+                    <input type="text" id="downloadTicketId" required>
+                </div>
+                <div>
+                    <label for="downloadFileId">File ID:</label>
+                    <input type="text" id="downloadFileId" required>
+                </div>
+                <button type="submit">Get Attachment Metadata</button>
+            </form>
+            <div id="downloadAttachmentResponse" class="response"></div>
+        </div>
+
+        <div class="card">
+            <h2>Delete Message</h2>
+            <form id="deleteMessageForm">
+                <div>
+                    <label for="deleteMessageTicketId">Ticket ID:</label>
+                    <input type="text" id="deleteMessageTicketId" required>
+                </div>
+                <div>
+                    <label for="deleteMessageId">Message ID:</label>
+                    <input type="text" id="deleteMessageId" required>
+                </div>
+                <button type="submit">Delete Message</button>
+            </form>
+            <div id="deleteMessageResponse" class="response"></div>
+        </div>
+
+        <div class="card">
+            <h2>Close Ticket</h2>
+            <form id="closeTicketForm">
+                <div>
+                    <label for="closeTicketId">Ticket ID:</label>
+                    <input type="text" id="closeTicketId" required>
+                </div>
+                <button type="submit">Close Ticket</button>
+            </form>
+            <div id="closeTicketResponse" class="response"></div>
+        </div>
+
+        <div class="card">
+            <h2>Reopen Ticket</h2>
+            <form id="reopenTicketForm">
+                <div>
+                    <label for="reopenTicketId">Ticket ID:</label>
+                    <input type="text" id="reopenTicketId" required>
+                </div>
+                <button type="submit">Reopen Ticket</button>
+            </form>
+            <div id="reopenTicketResponse" class="response"></div>
+        </div>
+
+        <div class="card">
+            <h2>Submit Ticket Rating</h2>
+            <form id="submitRatingForm">
+                <div>
+                    <label for="ratingTicketId">Ticket ID:</label>
+                    <input type="text" id="ratingTicketId" required>
+                </div>
+                <div>
+                    <label for="ratingValue">Rating (1-5):</label>
+                    <input type="number" id="ratingValue" min="1" max="5" required>
+                </div>
+                <div>
+                    <label for="ratingFeedback">Feedback:</label>
+                    <textarea id="ratingFeedback" rows="3"></textarea>
+                </div>
+                <button type="submit">Submit Rating</button>
+            </form>
+            <div id="submitRatingResponse" class="response"></div>
+        </div>
+
+        <div class="card">
+            <h2>Get Ticket Rating</h2>
+            <form id="getRatingForm">
+                <div>
+                    <label for="getRatingTicketId">Ticket ID:</label>
+                    <input type="text" id="getRatingTicketId" required>
+                </div>
+                <button type="submit">Get Rating</button>
+            </form>
+            <div id="getRatingResponse" class="response"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3000/api/user/tickets';
+        let authToken = localStorage.getItem('authToken') || '';
+        document.getElementById('authToken').value = authToken;
+
+        function saveAuthToken() {
+            authToken = document.getElementById('authToken').value;
+            localStorage.setItem('authToken', authToken);
+            alert('Auth Token Saved!');
+        }
+
+        async function fetchData(url, options = {}) {
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`,
+                ...options.headers,
+            };
+            
+            if (options.body instanceof FormData) {
+                delete headers['Content-Type']; // Multer handles content-type for FormData
+            }
+
+            try {
+                const response = await fetch(url, { ...options, headers });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.message || data.error || 'Something went wrong');
+                }
+                return data;
+            } catch (error) {
+                console.error('Fetch Error:', error);
+                throw error;
+            }
+        }
+
+        // Get Ticket Categories
+        async function getTicketCategories() {
+            const responseDiv = document.getElementById('categoriesResponse');
+            responseDiv.innerHTML = 'Loading...';
+            try {
+                const data = await fetchData('http://localhost:3000/api/user/categories'); // Note: categories endpoint is directly under /api/user
+                responseDiv.className = 'response';
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = error.message;
+            }
+        }
+
+        // Create New Ticket
+        document.getElementById('createTicketForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const responseDiv = document.getElementById('createTicketResponse');
+            responseDiv.innerHTML = 'Loading...';
+            const categoryId = document.getElementById('createTicketCategoryId').value;
+            const title = document.getElementById('createTicketTitle').value;
+            const description = document.getElementById('createTicketDescription').value;
+            const priority = document.getElementById('createTicketPriority').value;
+
+            try {
+                const data = await fetchData(API_BASE_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ categoryId, title, description, priority })
+                });
+                responseDiv.className = 'response';
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = error.message;
+            }
+        });
+
+        // Get User Tickets
+        document.getElementById('getUserTicketsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const responseDiv = document.getElementById('listTicketsResponse');
+            responseDiv.innerHTML = 'Loading...';
+            const page = document.getElementById('listTicketsPage').value;
+            const limit = document.getElementById('listTicketsLimit').value;
+            const status = document.getElementById('listTicketsStatus').value;
+            const categoryId = document.getElementById('listTicketsCategoryId').value;
+
+            let url = `${API_BASE_URL}?page=${page}&limit=${limit}`;
+            if (status) url += `&status=${status}`;
+            if (categoryId) url += `&categoryId=${categoryId}`;
+
+            try {
+                const data = await fetchData(url);
+                responseDiv.className = 'response';
+                responseDiv.innerHTML = '<h3>Tickets:</h3>';
+                if (data.data && data.data.tickets.length > 0) {
+                    data.data.tickets.forEach(ticket => {
+                        responseDiv.innerHTML += `
+                            <div class="ticket-item">
+                                <strong>ID:</strong> ${ticket.id}<br>
+                                <strong>Number:</strong> ${ticket.ticket_number}<br>
+                                <strong>Title:</strong> ${ticket.title}<br>
+                                <strong>Status:</strong> ${ticket.status}<br>
+                                <strong>Priority:</strong> ${ticket.priority}<br>
+                                <strong>Category:</strong> ${ticket.category?.name || 'N/A'}<br>
+                                <strong>Assigned Admin:</strong> ${ticket.assigned_admin?.username || 'N/A'}<br>
+                                <strong>Created At:</strong> ${new Date(ticket.created_at).toLocaleString()}<br>
+                            </div>
+                        `;
+                    });
+                    responseDiv.innerHTML += `<p>Total: ${data.data.total}, Page: ${data.data.page}/${data.data.totalPages}</p>`;
+                } else {
+                    responseDiv.innerHTML += '<p>No tickets found.</p>';
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = error.message;
+            }
+        });
+
+        // Get Ticket Details
+        document.getElementById('getTicketDetailsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const responseDiv = document.getElementById('getTicketDetailsResponse');
+            responseDiv.innerHTML = 'Loading...';
+            const ticketId = document.getElementById('getTicketId').value;
+
+            try {
+                const data = await fetchData(`${API_BASE_URL}/${ticketId}`);
+                responseDiv.className = 'response';
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = error.message;
+            }
+        });
+
+        // Send Message
+        document.getElementById('sendMessageForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const responseDiv = document.getElementById('sendMessageResponse');
+            responseDiv.innerHTML = 'Loading...';
+            const ticketId = document.getElementById('sendMessageTicketId').value;
+            const messageContent = document.getElementById('messageContent').value;
+            const attachmentInput = document.getElementById('messageAttachment');
+            const file = attachmentInput.files[0];
+
+            try {
+                let attachmentsData = [];
+                if (file) {
+                    // For simplicity in this test, we're simulating attachment data.
+                    // In a real app, you'd upload the file first, get its details,
+                    // and then send those details with the message.
+                    // For now, let's assume the uploadTicketAttachment endpoint handles the actual file storage.
+                    const formData = new FormData();
+                    formData.append('attachment', file);
+                    const uploadResponse = await fetchData(`${API_BASE_URL}/${ticketId}/attachments`, {
+                        method: 'POST',
+                        body: formData,
+                    });
+                    if (uploadResponse.success) {
+                        attachmentsData.push({
+                            original_filename: uploadResponse.data.original_filename,
+                            stored_filename: uploadResponse.data.stored_filename,
+                            file_path: uploadResponse.data.file_path,
+                            file_size: uploadResponse.data.file_size,
+                            file_type: uploadResponse.data.file_type,
+                            mime_type: uploadResponse.data.mime_type,
+                            id: uploadResponse.data.id // Include ID if it's needed for linking
+                        });
+                    }
+                }
+
+                const data = await fetchData(`${API_BASE_URL}/${ticketId}/messages`, {
+                    method: 'POST',
+                    body: JSON.stringify({ message: messageContent, attachments: attachmentsData })
+                });
+                responseDiv.className = 'response';
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = error.message;
+            }
+        });
+
+        // Get Ticket Messages
+        document.getElementById('getMessagesForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const responseDiv = document.getElementById('getMessagesResponse');
+            responseDiv.innerHTML = 'Loading...';
+            const ticketId = document.getElementById('getMessagesTicketId').value;
+
+            try {
+                const data = await fetchData(`${API_BASE_URL}/${ticketId}/messages`);
+                responseDiv.className = 'response';
+                responseDiv.innerHTML = '<h3>Messages:</h3>';
+                if (data.data && data.data.length > 0) {
+                    data.data.forEach(message => {
+                        responseDiv.innerHTML += `
+                            <div class="message-item">
+                                <strong>From:</strong> ${message.user?.username || 'N/A'} (${message.is_admin_reply ? 'Admin' : 'User'})<br>
+                                <strong>Type:</strong> ${message.message_type}<br>
+                                <strong>Message:</strong> ${message.message}<br>
+                                <strong>Created At:</strong> ${new Date(message.created_at).toLocaleString()}<br>
+                                ${message.attachments && message.attachments.length > 0 ? 
+                                    `<strong>Attachments:</strong> ${message.attachments.map(att => `<a href="#" onclick="downloadTest('${att.file_path}')">${att.original_filename}</a>`).join(', ')}<br>` : ''
+                                }
+                            </div>
+                        `;
+                    });
+                } else {
+                    responseDiv.innerHTML += '<p>No messages found.</p>';
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = error.message;
+            }
+        });
+
+        // Simplified download for testing (just logs the path)
+        function downloadTest(filePath) {
+            console.log('Simulating download for:', filePath);
+            alert('Check console for file path. Actual download not implemented in this test page.');
+            // In a real app, you'd make a GET request to the download endpoint
+            // window.open(`http://localhost:3000/api/user/tickets/${ticketId}/attachments/${fileId}`, '_blank');
+        }
+
+        // Upload General Ticket Attachment
+        document.getElementById('uploadAttachmentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const responseDiv = document.getElementById('uploadAttachmentResponse');
+            responseDiv.innerHTML = 'Loading...';
+            const ticketId = document.getElementById('uploadTicketId').value;
+            const attachmentInput = document.getElementById('generalAttachment');
+            const file = attachmentInput.files[0];
+
+            if (!file) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = 'Please select a file.';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('attachment', file);
+
+            try {
+                const data = await fetchData(`${API_BASE_URL}/${ticketId}/attachments`, {
+                    method: 'POST',
+                    body: formData,
+                });
+                responseDiv.className = 'response';
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = error.message;
+            }
+        });
+
+        // Get Ticket Attachment (Metadata)
+        document.getElementById('downloadAttachmentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const responseDiv = document.getElementById('downloadAttachmentResponse');
+            responseDiv.innerHTML = 'Loading...';
+            const ticketId = document.getElementById('downloadTicketId').value;
+            const fileId = document.getElementById('downloadFileId').value;
+
+            try {
+                const data = await fetchData(`${API_BASE_URL}/${ticketId}/attachments/${fileId}`);
+                responseDiv.className = 'response';
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = error.message;
+            }
+        });
+
+        // Delete Message
+        document.getElementById('deleteMessageForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const responseDiv = document.getElementById('deleteMessageResponse');
+            responseDiv.innerHTML = 'Loading...';
+            const ticketId = document.getElementById('deleteMessageTicketId').value;
+            const messageId = document.getElementById('deleteMessageId').value;
+
+            try {
+                const data = await fetchData(`${API_BASE_URL}/${ticketId}/messages/${messageId}`, {
+                    method: 'DELETE',
+                });
+                responseDiv.className = 'response';
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = error.message;
+            }
+        });
+
+        // Close Ticket
+        document.getElementById('closeTicketForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const responseDiv = document.getElementById('closeTicketResponse');
+            responseDiv.innerHTML = 'Loading...';
+            const ticketId = document.getElementById('closeTicketId').value;
+
+            try {
+                const data = await fetchData(`${API_BASE_URL}/${ticketId}/close`, {
+                    method: 'PUT',
+                });
+                responseDiv.className = 'response';
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = error.message;
+            }
+        });
+
+        // Reopen Ticket
+        document.getElementById('reopenTicketForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const responseDiv = document.getElementById('reopenTicketResponse');
+            responseDiv.innerHTML = 'Loading...';
+            const ticketId = document.getElementById('reopenTicketId').value;
+
+            try {
+                const data = await fetchData(`${API_BASE_URL}/${ticketId}/reopen`, {
+                    method: 'POST',
+                });
+                responseDiv.className = 'response';
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = error.message;
+            }
+        });
+
+        // Submit Ticket Rating
+        document.getElementById('submitRatingForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const responseDiv = document.getElementById('submitRatingResponse');
+            responseDiv.innerHTML = 'Loading...';
+            const ticketId = document.getElementById('ratingTicketId').value;
+            const rating = parseInt(document.getElementById('ratingValue').value);
+            const feedback = document.getElementById('ratingFeedback').value;
+
+            try {
+                const data = await fetchData(`${API_BASE_URL}/${ticketId}/rating`, {
+                    method: 'POST',
+                    body: JSON.stringify({ rating, feedback })
+                });
+                responseDiv.className = 'response';
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = error.message;
+            }
+        });
+
+        // Get Ticket Rating
+        document.getElementById('getRatingForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const responseDiv = document.getElementById('getRatingResponse');
+            responseDiv.innerHTML = 'Loading...';
+            const ticketId = document.getElementById('getRatingTicketId').value;
+
+            try {
+                const data = await fetchData(`${API_BASE_URL}/${ticketId}/rating`);
+                responseDiv.className = 'response';
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = error.message;
+            }
+        });
+
+    </script>
+</body>
+</html>

@@ -10,15 +10,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --- bestehende Modelle ---
+// --- Existing Models ---
 
 model User {
   id                      String      @id @default(cuid())
-  username                String      @unique
+  username                String?     @unique // Made optional if 'name' is for display
   email                   String      @unique
-  password_hash           String
+  password_hash           String?
   first_name              String?
   last_name               String?
+  name                    String? // Added for OAuth display name
+  avatar                  String? // Added for OAuth avatar URL
+  provider                String? // Added for OAuth provider (e.g., 'discord', 'google')
+  providerId              String? // Added for OAuth provider's unique ID
   phone                   String?
   status                  UserStatus  @default(ACTIVE)
   email_verified          Boolean     @default(false)
@@ -36,6 +40,31 @@ model User {
   wallet_transactions     WalletTransaction[]
   topup_requests          TopupRequest[]
   card_transactions       CardTransaction[]
+  tickets_created         Ticket[]      @relation("UserTickets")
+  tickets_assigned        Ticket[]      @relation("AssignedAdminTickets")
+  ticket_messages         TicketMessage[]
+  ticket_attachments      TicketAttachment[]
+  ticket_ratings_given    TicketRating[] @relation("UserTicketRatings")
+  ticket_ratings_received TicketRating[] @relation("TicketRatingAdmin")
+  response_templates      ResponseTemplate[]
+  ticket_escalations_from TicketEscalation[] @relation("EscalatedFromAdmin")
+  ticket_escalations_to   TicketEscalation[] @relation("EscalatedToAdmin")
+  refreshTokens           RefreshToken[] // Added relationship to RefreshToken
+
+  @@unique([provider, providerId]) // Added compound unique constraint for OAuth
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  user_id   String // Changed from userId to user_id for consistency
+  issued_at DateTime  @default(now()) // Changed from issuedAt
+  expires_at DateTime  // Changed from expiresAt
+  revoked_at DateTime?
+  user      User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([token])
 }
 
 model Service {
@@ -124,8 +153,6 @@ model UserServer {
   @@index([user_id])
   @@index([expires_at])
 }
-
-// --- neue Modelle ---
 
 model UserWallet {
   id            String   @id @default(cuid())
@@ -238,7 +265,181 @@ model PaymentMethodConfig {
   updated_at    DateTime            @updatedAt
 }
 
-// --- Enums ---
+// --- New Models (Ticket System) ---
+
+model TicketCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  color       String?
+  icon        String?
+  sort_order  Int      @default(0)
+  status      CategoryStatus @default(ACTIVE)
+  created_at  DateTime @default(now())
+  tickets     Ticket[]
+  response_templates ResponseTemplate[]
+}
+
+model Ticket {
+  id                         String         @id @default(cuid())
+  ticket_number              String         @unique
+  user_id                    String
+  category_id                String
+  title                      String
+  description                String
+  priority                   TicketPriority @default(NORMAL)
+  status                     TicketStatus   @default(OPEN)
+  assigned_admin_id          String?
+  assigned_at                DateTime?
+  first_response_at          DateTime?
+  last_activity_at           DateTime?
+  resolved_at                DateTime?
+  closed_at                  DateTime?
+  tags                       Json?
+  attachments_data           Json? // Using a different name to avoid conflict with relation
+  internal_notes             String?
+  resolution_summary         String?
+  sla_first_response_due     DateTime?
+  sla_resolution_due         DateTime?
+  sla_first_response_breached Boolean @default(false)
+  sla_resolution_breached    Boolean @default(false)
+  created_at                 DateTime       @default(now())
+  updated_at                 DateTime       @updatedAt
+  
+  user                       User           @relation("UserTickets", fields: [user_id], references: [id])
+  category                   TicketCategory @relation(fields: [category_id], references: [id])
+  assigned_admin             User?          @relation("AssignedAdminTickets", fields: [assigned_admin_id], references: [id])
+  messages                   TicketMessage[]
+  attachments                TicketAttachment[]
+  rating                     TicketRating?
+  escalations                TicketEscalation[]
+
+  @@index([user_id])
+  @@index([status, priority])
+  @@index([assigned_admin_id])
+  @@index([category_id, status])
+  @@index([created_at])
+  @@index([ticket_number])
+}
+
+model TicketMessage {
+  id             String       @id @default(cuid())
+  ticket_id      String
+  user_id        String
+  message        String
+  message_type   MessageType  @default(MESSAGE)
+  is_admin_reply Boolean      @default(false)
+  is_internal    Boolean      @default(false)
+  attachments_data Json? // Using a different name to avoid conflict with relation
+  metadata       Json?
+  edited_at      DateTime?
+  deleted_at     DateTime?
+  read_at        DateTime?
+  created_at     DateTime     @default(now())
+  updated_at     DateTime     @updatedAt
+
+  ticket         Ticket       @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [user_id], references: [id])
+  attachments    TicketAttachment[]
+
+  @@index([ticket_id])
+  @@index([user_id])
+  @@index([created_at])
+  @@index([message_type])
+}
+
+model TicketAttachment {
+  id               String   @id @default(cuid())
+  ticket_id        String?
+  message_id       String?
+  user_id          String
+  original_filename String
+  stored_filename  String
+  file_path        String
+  file_size        Int
+  file_type        String
+  mime_type        String
+  download_count   Int      @default(0)
+  created_at       DateTime @default(now())
+
+  ticket           Ticket?  @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  message          TicketMessage? @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  user             User     @relation(fields: [user_id], references: [id])
+
+  @@index([ticket_id])
+  @@index([message_id])
+}
+
+model TicketRating {
+  id                           String   @id @default(cuid())
+  ticket_id                    String   @unique
+  user_id                      String
+  admin_id                     String?
+  rating                       Int
+  feedback                     String?
+  response_time_rating         Int?
+  solution_quality_rating      Int?
+  admin_professionalism_rating Int?
+  would_recommend              Boolean?
+  allow_public_display         Boolean  @default(false)
+  created_at                   DateTime @default(now())
+
+  ticket                       Ticket   @relation(fields: [ticket_id], references: [id])
+  user                         User     @relation("UserTicketRatings", fields: [user_id], references: [id])
+  admin                        User?    @relation(name: "TicketRatingAdmin", fields: [admin_id], references: [id])
+}
+
+model ResponseTemplate {
+  id          String   @id @default(cuid())
+  admin_id    String
+  title       String
+  content     String
+  category_id String?
+  tags        Json?
+  usage_count Int      @default(0)
+  is_public   Boolean  @default(false)
+  status      TemplateStatus @default(ACTIVE)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  admin       User     @relation(fields: [admin_id], references: [id])
+  category    TicketCategory? @relation(fields: [category_id], references: [id])
+
+  @@index([admin_id])
+  @@index([category_id])
+}
+
+model SLAPolicy {
+  id                  String         @id @default(cuid())
+  name                String
+  description         String?
+  priority_level      TicketPriority @unique
+  first_response_time Int
+  resolution_time     Int
+  escalation_time     Int?
+  business_hours_only Boolean        @default(true)
+  status              PolicyStatus   @default(ACTIVE)
+  created_at          DateTime       @default(now())
+}
+
+model TicketEscalation {
+  id                 String   @id @default(cuid())
+  ticket_id          String
+  escalated_from_id  String?
+  escalated_to_id    String
+  escalation_reason  EscalationReason
+  escalation_notes   String?
+  created_at         DateTime @default(now())
+
+  ticket             Ticket   @relation(fields: [ticket_id], references: [id])
+  escalated_from     User?    @relation("EscalatedFromAdmin", fields: [escalated_from_id], references: [id])
+  escalated_to       User     @relation("EscalatedToAdmin", fields: [escalated_to_id], references: [id])
+
+  @@index([ticket_id])
+  @@index([escalated_to_id])
+}
+
+// --- Existing Enums ---
 
 enum UserStatus {
   ACTIVE
@@ -346,4 +547,51 @@ enum PaymentMethodStatus {
   ACTIVE
   INACTIVE
   MAINTENANCE
+}
+
+// --- New Enums (Ticket System) ---
+
+enum CategoryStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_USER
+  WAITING_ADMIN
+  RESOLVED
+  CLOSED
+}
+
+enum MessageType {
+  MESSAGE
+  STATUS_CHANGE
+  ASSIGNMENT
+  INTERNAL_NOTE
+}
+
+enum TemplateStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum PolicyStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum EscalationReason {
+  SLA_BREACH
+  COMPLEXITY
+  MANUAL
+  USER_REQUEST
 }

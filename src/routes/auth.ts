@@ -111,13 +111,11 @@ router.get('/callback', async (req: AuthRequest, res: AuthResponse) => {
       ? `https://cdn.discordapp.com/avatars/${providerId}/${avatarId}.png`
       : null;
 
-    // Check if user exists
-    let user = await prisma.user.findUnique({
+    // Check if user exists (changed findUnique to findFirst)
+    let user = await prisma.user.findFirst({
       where: {
-        provider_providerId: {
-          provider: 'discord',
-          providerId
-        }
+        provider: 'discord',
+        providerId: providerId
       }
     });
 
@@ -155,8 +153,9 @@ router.get('/callback', async (req: AuthRequest, res: AuthResponse) => {
   } catch (err: any) {
     const error = err instanceof Error ? err : new Error(err?.message || 'Unknown error');
     console.error('Discord auth error:', error);
-    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
-    res.redirect(`${FRONTEND_URL}/auth/error?message=${encodeURIComponent(error.message)}`);
+    // Use the dynamic frontend URL from the .env, or a sensible default for testing
+    const FRONTEND_URL_FOR_ERROR = process.env.FRONTEND_URL || 'http://localhost:5173'; 
+    res.redirect(`${FRONTEND_URL_FOR_ERROR}/auth/error?message=${encodeURIComponent(error.message)}`);
   }
 });
 

@@ -11,7 +11,8 @@
     "postinstall": "prisma generate",
     "test-server": "node test-server.js",
     "admin": "node scripts/admin.js",
-    "user": "node scripts/admin.js"
+    "user": "node scripts/admin.js",
+    "test:frontend": "echo \"Please ensure the backend server is running (npm run dev) and then open http://localhost:3000/test-tickets.html in your browser.\""
   },
   "keywords": [],
   "author": "",
@@ -22,6 +23,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.0.0",
     "@types/node": "^24.2.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -30,10 +32,12 @@
     "express-rate-limit": "^8.0.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
     "node-fetch": "^3.3.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.2",
-    "undici": "^7.13.0"
+    "undici": "^7.13.0",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "cross-env": "^10.0.0",
