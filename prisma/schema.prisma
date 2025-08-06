@@ -1,0 +1,171 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      String      @id @default(cuid())
+  username                String      @unique
+  email                   String      @unique
+  password_hash           String
+  first_name              String?
+  last_name               String?
+  phone                   String?
+  status                  UserStatus  @default(ACTIVE)
+  email_verified          Boolean     @default(false)
+  email_verification_token String?
+  password_reset_token    String?
+  password_reset_expires  DateTime?
+  last_login              DateTime?
+  created_at              DateTime    @default(now())
+  updated_at              DateTime    @updatedAt
+  orders                  Order[]
+  pterodactyl_user        PterodactylUser?
+  user_servers            UserServer[]
+  role                    UserRole    @default(USER)
+}
+
+model Service {
+  id                String    @id @default(cuid())
+  name              String
+  short_description String?
+  description       String?
+  cpu_type          String?
+  status            ServiceStatus @default(ACTIVE)
+  sort_order        Int           @default(0)
+  created_at        DateTime      @default(now())
+  updated_at        DateTime      @updatedAt
+  packages          Package[]
+  orders            Order[]
+}
+
+model Package {
+  id                          String    @id @default(cuid())
+  service_id                  String
+  name                        String
+  configuration               Json // {cpu_cores, ram_gb, disk_gb, bandwidth_gb, datacenter, etc}
+  firewall_type               String?
+  complimentary_gifts         Json?
+  base_price                  Decimal
+  first_time_discount_percent Decimal   @default(0)
+  status                      ServiceStatus @default(ACTIVE)
+  sort_order                  Int           @default(0)
+  created_at                  DateTime      @default(now())
+  updated_at                  DateTime      @updatedAt
+  service                     Service       @relation(fields: [service_id], references: [id], onDelete: Cascade)
+  orders                      Order[]
+}
+
+model Order {
+  id              String          @id @default(cuid())
+  user_id         String
+  service_id      String
+  package_id      String
+  order_number    String          @unique
+  billing_cycle   BillingCycle
+  base_amount     Decimal
+  discount_amount Decimal?        @default(0)
+  coupon_code     String?
+  final_amount    Decimal
+  payment_method  PaymentMethod?
+  status          OrderStatus     @default(PENDING)
+  payment_status  PaymentStatus   @default(PENDING)
+  notes           String?
+  admin_notes     String?
+  expires_at      DateTime?
+  created_at      DateTime        @default(now())
+  updated_at      DateTime        @updatedAt
+  user            User            @relation(fields: [user_id], references: [id])
+  service         Service         @relation(fields: [service_id], references: [id])
+  package         Package         @relation(fields: [package_id], references: [id])
+  user_servers    UserServer[]
+}
+
+model PterodactylUser {
+  id                    String   @id @default(cuid())
+  user_id               String   @unique
+  pterodactyl_user_id   Int
+  pterodactyl_username  String
+  pterodactyl_email     String
+  pterodactyl_password  String? // Encrypted
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+  user                  User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model UserServer {
+  id                    String        @id @default(cuid())
+  user_id               String
+  order_id              String
+  pterodactyl_server_id Int
+  server_name           String
+  server_ip             String?
+  server_port           Int?
+  status                ServerStatus  @default(ACTIVE)
+  expires_at            DateTime
+  created_at            DateTime      @default(now())
+  updated_at            DateTime      @updatedAt
+  user                  User          @relation(fields: [user_id], references: [id])
+  order                 Order         @relation(fields: [order_id], references: [id])
+
+  @@index([user_id])
+  @@index([expires_at])
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum ServiceStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUALLY
+  ANNUALLY
+}
+
+enum PaymentMethod {
+  WALLET
+  PHONE_CARD
+  BANK_TRANSFER
+  ONLINE_GATEWAY
+}
+
+enum ServerStatus {
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+}

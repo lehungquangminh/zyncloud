@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZynCloud Auth Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .result {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .success {
+            color: #198754;
+        }
+        .user-role {
+            font-weight: bold;
+        }
+        .user-role.admin {
+            color: #dc3545;
+        }
+        .user-role.user {
+            color: #198754;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="/">ZynCloud</a>
+            <div class="navbar-nav">
+                <a class="nav-link active" href="/">Home</a>
+                <a class="nav-link" href="/admin" id="adminLink" style="display: none;">Admin</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>ZynCloud Auth Test</h1>
+
+    <!-- Discord Auth Section -->
+    <div class="container">
+        <h2>Discord Authentication</h2>
+        <button onclick="signInWithDiscord()">Sign in with Discord</button>
+        <div id="discordResult" class="result"></div>
+    </div>
+
+    <!-- User Info Section -->
+    <div class="container">
+        <h2>User Information</h2>
+        <button onclick="getUserInfo()">Get User Info</button>
+        <button onclick="clearToken()">Clear Token</button>
+        <div id="userResult" class="result"></div>
+        <div id="tokenInfo" class="result" style="margin-top: 10px;"></div>
+    </div>
+
+    <script>
+        // Check if running on localhost
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            console.log('Running on localhost');
+        } else {
+            console.warn('Not running on localhost - authentication might fail');
+        }
+        // Expose functions to window object for onclick handlers
+        Object.assign(window, {
+            signInWithDiscord() {
+                window.location.href = 'http://localhost:3000/auth/discord';
+            },
+
+            clearToken() {
+                localStorage.removeItem('jwt_token');
+                document.getElementById('tokenInfo').innerHTML = 
+                    '<span class="error">Token cleared</span>';
+                document.getElementById('userResult').innerHTML = '';
+                document.getElementById('discordResult').innerHTML = '';
+            },
+
+            async refreshToken() {
+                try {
+                    const response = await fetch('http://localhost:3000/auth/refresh', {
+                        method: 'POST',
+                        credentials: 'include' // Important for cookies
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to refresh token');
+                    }
+
+                    const data = await response.json();
+                    localStorage.setItem('jwt_token', data.accessToken);
+                    return data.accessToken;
+                } catch (error) {
+                    console.error('Error refreshing token:', error);
+                    localStorage.removeItem('jwt_token');
+                    throw error;
+                }
+            },
+
+            async fetchWithRefresh(url, options = {}) {
+                const token = localStorage.getItem('jwt_token');
+                if (!token) {
+                    throw new Error('No token available');
+                }
+
+                // First attempt with current token
+                const response = await fetch(url, {
+                    ...options,
+                    headers: {
+                        ...options.headers,
+                        'Authorization': `Bearer ${token}`
+                    },
+                    credentials: 'include'
+                });
+
+                if (response.status === 401) {
+                    try {
+                        // Try to refresh the token
+                        const newToken = await this.refreshToken();
+                        
+                        // Retry the request with new token
+                        return await fetch(url, {
+                            ...options,
+                            headers: {
+                                ...options.headers,
+                                'Authorization': `Bearer ${newToken}`
+                            },
+                            credentials: 'include'
+                        });
+                    } catch (error) {
+                        console.error('Token refresh failed:', error);
+                        throw error;
+                    }
+                }
+
+                return response;
+            },
+
+            async getUserInfo() {
+                try {
+                    const response = await this.fetchWithRefresh('http://localhost:3000/users/me');
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to fetch user info');
+                    }
+
+                    const data = await response.json();
+                    const roleClass = data.role === 'ADMIN' ? 'admin' : 'user';
+                    document.getElementById('userResult').innerHTML = 
+                        '<span class="success">User info retrieved successfully!</span><br>' +
+                        `<div class="mt-3">
+                            <strong>Name:</strong> ${data.name}<br>
+                            <strong>Email:</strong> ${data.email}<br>
+                            <strong>Role:</strong> <span class="user-role ${roleClass}">${data.role}</span>
+                        </div>`;
+                        
+                    // Show/hide admin link based on role
+                    document.getElementById('adminLink').style.display = 
+                        data.role === 'ADMIN' ? 'block' : 'none';
+                } catch (error) {
+                    document.getElementById('userResult').innerHTML = 
+                        '<span class="error">Error: ' + error.message + '</span>';
+                    document.getElementById('adminLink').style.display = 'none';
+                }
+            }
+        });
+
+        // Handle Discord auth callback
+        window.addEventListener('DOMContentLoaded', () => {
+            // Check for Discord auth callback
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            
+            if (token) {
+                localStorage.setItem('jwt_token', token);
+                document.getElementById('discordResult').innerHTML = 
+                    '<span class="success">Successfully logged in with Discord!</span>';
+                document.getElementById('tokenInfo').innerHTML = 
+                    '<span class="success">Token saved</span>';
+            } else {
+                const savedToken = localStorage.getItem('jwt_token');
+                if (savedToken) {
+                    document.getElementById('tokenInfo').innerHTML = 
+                        '<span class="success">Token saved</span>';
+                } else {
+                    document.getElementById('tokenInfo').innerHTML = 
+                        '<span class="error">No token saved</span>';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

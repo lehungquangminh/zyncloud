@@ -121,3 +121,263 @@ This setup provides a secure and efficient way to add generative AI capabilities
 - Break down complex tasks, like setting up authentication or connecting to a database, into smaller, manageable steps.
 - If a request is ambiguous, ask for clarification about the desired functionality, database choice, or project structure.
 - When discussing security, provide specific middleware and techniques to address common vulnerabilities.
+
+# GitHub Copilot Rules for Shop System Development
+
+## USUALLY USE TypeScript
+You are a GitHub Copilot AI assistant designed to help developers build a comprehensive hosting shop system. Your primary goal is to assist in writing clean, maintainable, and efficient code while adhering to the project's coding standards and best practices.
+You will provide code snippets, explanations, and suggestions based on the context provided in the project overview and coding standards.
+You will not suggest code that has been deleted or is not relevant to the current context.
+
+## PROJECT OVERVIEW
+You are developing a comprehensive hosting shop system with user management, service provisioning, payment processing, ticket support, notifications, and coupon management. The system integrates with Pterodactyl Panel for automated server provisioning.
+
+## TECHNOLOGY STACK
+- **Backend**: Node.js with Express.js or FastAPI (Python)
+- **Database**: MySQL or PostgreSQL
+- **Frontend**: React.js with Tailwind CSS
+- **Payment**: Card topup APIs, bank transfer, wallet system
+- **External APIs**: Pterodactyl Panel API, Card processing APIs
+- **Authentication**: JWT tokens with refresh mechanism
+
+## CODING STANDARDS
+
+### General Rules
+- Use TypeScript for all new code
+- Follow RESTful API conventions
+- Implement proper error handling with try-catch blocks
+- Add comprehensive logging for all operations
+- Use environment variables for all configuration
+- Implement input validation and sanitization
+- Follow the single responsibility principle
+
+### API Development
+- Always implement proper HTTP status codes (200, 201, 400, 401, 403, 404, 500)
+- Use consistent response format:
+  ```json
+  {
+    "success": boolean,
+    "message": string,
+    "data": object,
+    "error": string (if applicable)
+  }
+  ```
+- Implement rate limiting on all endpoints
+- Add authentication middleware where required
+- Use proper HTTP methods (GET, POST, PUT, DELETE)
+- Implement pagination for list endpoints
+- Add API documentation with JSDoc comments
+
+### Database Operations
+- Use parameterized queries to prevent SQL injection
+- Implement database transactions for multi-table operations
+- Add proper indexing on frequently queried columns
+- Use connection pooling
+- Implement soft delete where appropriate
+- Add created_at and updated_at timestamps to all tables
+
+### Security Rules
+- Never store passwords in plain text (use bcrypt)
+- Implement CORS properly
+- Validate all input data
+- Use HTTPS in production
+- Implement proper session management
+- Add request validation middleware
+- Sanitize HTML content to prevent XSS
+
+## SPECIFIC SYSTEM RULES
+
+### User Management
+- Always hash passwords with bcrypt (salt rounds: 12)
+- Implement email verification for new accounts
+- Add 2FA support structure
+- Track user login history
+- Implement account lockout after failed attempts
+- Create user wallets automatically on registration
+
+### Payment System
+- Always validate payment amounts server-side
+- Implement atomic transactions for wallet operations
+- Log all financial transactions
+- Add fraud detection mechanisms
+- Implement refund capabilities
+- Never store sensitive payment information
+
+### Coupon System
+- Validate coupon codes case-insensitively
+- Check all coupon conditions before applying
+- Implement usage tracking and limits
+- Add expiration date validation
+- Support both percentage and fixed amount discounts
+- Implement coupon stacking rules
+
+### Ticket System
+- Auto-assign ticket IDs with prefixes (e.g., TK-2024-001)
+- Track ticket status changes with timestamps
+- Implement file upload for attachments
+- Add email notifications for ticket updates
+- Support ticket priority levels
+- Implement SLA tracking
+
+### Pterodactyl Integration
+- Always validate Pterodactyl API responses
+- Implement retry logic for failed API calls
+- Store server creation logs for debugging
+- Handle API rate limits properly
+- Implement rollback mechanisms for failed provisions
+- Cache Pterodactyl data where appropriate
+
+### Notification System
+- Support multiple notification types (email, in-app, SMS)
+- Implement notification templates
+- Add notification preferences per user
+- Track notification delivery status
+- Implement notification batching
+- Support rich content (HTML, images)
+
+## ERROR HANDLING
+
+### Database Errors
+```javascript
+try {
+  // Database operation
+} catch (error) {
+  logger.error('Database error:', error);
+  if (error.code === 'ER_DUP_ENTRY') {
+    return res.status(409).json({
+      success: false,
+      message: 'Resource already exists'
+    });
+  }
+  return res.status(500).json({
+    success: false,
+    message: 'Database operation failed'
+  });
+}
+```
+
+### API Integration Errors
+```javascript
+try {
+  const response = await pterodactylAPI.createServer(data);
+} catch (error) {
+  logger.error('Pterodactyl API error:', error);
+  // Implement rollback logic
+  await rollbackOrder(orderId);
+  return res.status(502).json({
+    success: false,
+    message: 'Server provisioning failed'
+  });
+}
+```
+
+## NAMING CONVENTIONS
+
+### Variables and Functions
+- Use camelCase for variables and functions
+- Use descriptive names (getUserBalance, not getUB)
+- Use boolean prefixes (isActive, hasPermission)
+- Use async/await instead of callbacks
+
+### Database
+- Use snake_case for table and column names
+- Use singular table names (user, not users)
+- Use meaningful foreign key names (user_id, not uid)
+- Add proper constraints and relationships
+
+### API Endpoints
+- Use kebab-case for URLs (/api/user-wallet, not /api/userWallet)
+- Use nouns for resources (/api/tickets, not /api/get-tickets)
+- Use HTTP methods to indicate actions
+- Version your APIs (/api/v1/...)
+
+## VALIDATION RULES
+
+### Input Validation
+```javascript
+// Always validate required fields
+const { error, value } = schema.validate(req.body);
+if (error) {
+  return res.status(400).json({
+    success: false,
+    message: 'Validation failed',
+    error: error.details[0].message
+  });
+}
+```
+
+### Business Logic Validation
+- Validate wallet balance before purchases
+- Check service availability before provisioning
+- Validate coupon eligibility before applying
+- Verify user permissions for all operations
+
+## LOGGING REQUIREMENTS
+
+### What to Log
+- All authentication attempts
+- Financial transactions
+- API calls to external services
+- Error conditions
+- User actions (login, purchase, ticket creation)
+- System events (server provisioning, payments)
+
+### Log Format
+```javascript
+logger.info('User login successful', {
+  userId: user.id,
+  email: user.email,
+  ip: req.ip,
+  userAgent: req.headers['user-agent'],
+  timestamp: new Date().toISOString()
+});
+```
+
+## TESTING REQUIREMENTS
+- Write unit tests for all business logic functions
+- Create integration tests for API endpoints
+- Test payment flows thoroughly
+- Mock external API calls in tests
+- Test error scenarios and edge cases
+- Implement automated testing for critical paths
+
+## PERFORMANCE OPTIMIZATION
+- Implement caching for frequently accessed data
+- Use database indexes on query columns
+- Implement connection pooling
+- Compress API responses
+- Optimize database queries (avoid N+1 problems)
+- Use pagination for large datasets
+
+## DEPLOYMENT CONSIDERATIONS
+- Use environment-specific configurations
+- Implement health check endpoints
+- Add monitoring and alerting
+- Use process managers (PM2, systemd)
+- Implement graceful shutdown
+- Add database migration scripts
+
+## SPECIFIC FEATURES IMPLEMENTATION
+
+### Wallet System
+- Implement atomic transactions
+- Add transaction history
+- Support multiple currencies if needed
+- Implement balance validation
+- Add fraud detection
+
+### Server Provisioning
+- Queue server creation requests
+- Implement retry mechanisms
+- Add provisioning status tracking
+- Support different server types
+- Implement resource cleanup
+
+### Notification System
+- Use message queues for email sending
+- Implement template system
+- Support notification preferences
+- Track delivery status
+- Add unsubscribe functionality
+
+Remember to always prioritize security, performance, and maintainability in your code. Implement proper error handling, logging, and testing for all features.
