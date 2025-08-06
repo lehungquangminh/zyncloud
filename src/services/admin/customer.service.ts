@@ -1,6 +1,5 @@
-import { PrismaClient, UserStatus } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../../lib/prisma';
+import { UserStatus } from '@prisma/client';
 
 export const getAllCustomers = async (filters: any) => {
   const { search, status } = filters;

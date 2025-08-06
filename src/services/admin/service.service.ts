@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../lib/prisma';
 import { ServiceStatus } from '@prisma/client';
-
-const prisma = new PrismaClient();
 
 export const getAllServices = async () => {
   return prisma.service.findMany();

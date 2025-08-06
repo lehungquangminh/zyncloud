@@ -10,6 +10,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --- bestehende Modelle ---
+
 model User {
   id                      String      @id @default(cuid())
   username                String      @unique
@@ -30,6 +32,10 @@ model User {
   pterodactyl_user        PterodactylUser?
   user_servers            UserServer[]
   role                    UserRole    @default(USER)
+  wallet                  UserWallet?
+  wallet_transactions     WalletTransaction[]
+  topup_requests          TopupRequest[]
+  card_transactions       CardTransaction[]
 }
 
 model Service {
@@ -50,7 +56,7 @@ model Package {
   id                          String    @id @default(cuid())
   service_id                  String
   name                        String
-  configuration               Json // {cpu_cores, ram_gb, disk_gb, bandwidth_gb, datacenter, etc}
+  configuration               Json
   firewall_type               String?
   complimentary_gifts         Json?
   base_price                  Decimal
@@ -119,6 +125,121 @@ model UserServer {
   @@index([expires_at])
 }
 
+// --- neue Modelle ---
+
+model UserWallet {
+  id            String   @id @default(cuid())
+  user_id       String   @unique
+  balance       Decimal  @default(0.00)
+  total_topup   Decimal  @default(0.00)
+  total_spent   Decimal  @default(0.00)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  user          User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+}
+
+model WalletTransaction {
+  id              String                  @id @default(cuid())
+  user_id         String
+  type            WalletTransactionType
+  amount          Decimal
+  balance_before  Decimal
+  balance_after   Decimal
+  description     String?
+  reference_type  ReferenceType?
+  reference_id    String?
+  admin_id        String?
+  status          TransactionStatus       @default(COMPLETED)
+  metadata        Json?
+  created_at      DateTime                @default(now())
+  user            User                    @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, type])
+  @@index([reference_type, reference_id])
+  @@index([created_at])
+}
+
+model TopupRequest {
+  id                  String             @id @default(cuid())
+  user_id             String
+  method              TopupMethod
+  requested_amount    Decimal
+  actual_amount       Decimal?
+  status              TopupStatus        @default(PENDING)
+  card_telco          CardTelco?
+  card_amount         Decimal?
+  card_serial         String?
+  card_pin            String?
+  exchange_rate       Decimal?
+  bank_account_name   String?
+  bank_account_number String?
+  bank_name           String?
+  transfer_code       String?
+  processed_by        String?
+  admin_notes         String?
+  api_response        Json?
+  processed_at        DateTime?
+  created_at          DateTime           @default(now())
+  updated_at          DateTime           @updatedAt
+  user                User               @relation(fields: [user_id], references: [id])
+  card_transactions   CardTransaction[]
+
+  @@index([user_id, status])
+  @@index([method, status])
+  @@index([transfer_code])
+}
+
+model CardTransaction {
+  id                 String      @id @default(cuid())
+  topup_request_id   String
+  user_id            String
+  telco              CardTelco
+  card_amount        Decimal
+  received_amount    Decimal
+  exchange_rate      Decimal
+  serial             String
+  pin                String
+  api_provider       String?
+  api_transaction_id String?
+  api_response       Json?
+  status             CardTransactionStatus @default(PENDING)
+  processed_at       DateTime?
+  created_at         DateTime              @default(now())
+  topup_request      TopupRequest          @relation(fields: [topup_request_id], references: [id])
+  user               User                  @relation(fields: [user_id], references: [id])
+
+  @@index([serial, pin])
+  @@index([status])
+  @@index([api_transaction_id])
+}
+
+model ExchangeRate {
+  id           String      @id @default(cuid())
+  telco        CardTelco
+  card_amount  Decimal
+  exchange_rate Decimal
+  status       ServiceStatus @default(ACTIVE)
+  created_at   DateTime    @default(now())
+  updated_at   DateTime    @updatedAt
+
+  @@unique([telco, card_amount])
+}
+
+model PaymentMethodConfig {
+  id            String        @id @default(cuid())
+  method_type   PaymentMethod
+  method_name   String
+  status        PaymentMethodStatus @default(ACTIVE)
+  configuration Json?
+  sort_order    Int                 @default(0)
+  created_at    DateTime            @default(now())
+  updated_at    DateTime            @updatedAt
+}
+
+// --- Enums ---
+
 enum UserStatus {
   ACTIVE
   SUSPENDED
@@ -168,4 +289,61 @@ enum ServerStatus {
   ACTIVE
   SUSPENDED
   TERMINATED
+}
+
+enum WalletTransactionType {
+  TOPUP
+  PURCHASE
+  REFUND
+  ADMIN_ADD
+  ADMIN_SUBTRACT
+  BONUS
+}
+
+enum ReferenceType {
+  ORDER
+  TOPUP_REQUEST
+  ADMIN_ACTION
+  REFUND
+  CARD_TRANSACTION
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum TopupMethod {
+  CARD
+  BANK_TRANSFER
+  ONLINE_GATEWAY
+}
+
+enum TopupStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum CardTelco {
+  VIETTEL
+  MOBIFONE
+  VINAPHONE
+}
+
+enum CardTransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  INVALID_CARD
+}
+
+enum PaymentMethodStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
 }

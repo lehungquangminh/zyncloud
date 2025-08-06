@@ -1,6 +1,5 @@
-import { PrismaClient, OrderStatus, PaymentStatus } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../../lib/prisma';
+import { OrderStatus, PaymentStatus } from '@prisma/client';
 
 export const getAllOrders = async (filters: any) => {
   const { status, startDate, endDate, userId, serviceId } = filters;
